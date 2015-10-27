@@ -1,6 +1,9 @@
 # Gungho Chat
 This is just a test chat incomplete but what I was able to put together in 48 hrs
 -----------------------------------------------------------------------------------------------------
+#Technologies used
+language: Javascript
+runtime: node.js
 #Bugs
 - hottub not incomplete
 - When a user broadcast to other clients only sends single chars buffer functionality not finished
