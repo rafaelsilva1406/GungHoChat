@@ -1,4 +1,5 @@
 var net = require('net'),
+	carrier = require('carrier'),
     serverOption = {
         allowHalfOpen: false,
         pauseOnConnect:false
@@ -50,6 +51,8 @@ function roomRoute(s) {
  * Method handle chat route
  */
 function chatRoute(s) {
+	var my_carrier = carrier.carry(s);
+	 
     s.write('\r\n' + localizeArr[9] + '\r\n');
 
     rooms.chat.push(s);
@@ -65,8 +68,8 @@ function chatRoute(s) {
 
     s.write(localizeArr[8] + '\r\n');
 
-    s.on('data', function (d) {
-        broadcast(s, s.chatGungHo.name + ':' + d);
+    my_carrier.on('line',  function(line) {
+        broadcast(s, s.chatGungHo.name + ':' + line);
     });
 }
 
@@ -89,15 +92,12 @@ function mainMenu(s,d) {
  * Method attach listeners
  */
 function attachListeners(s) {
-    var buffer = '',
+    var my_carrier = carrier.carry(s),
         joined = false;
     //Handle incoming msg from clients
-    s.on('data', function (d) {
-        //Add to client buffer
-        buffer += d;
-     
+	my_carrier.on('line',  function(line) {
         //check escape || route cmds
-        switch (cleanInput(buffer)) {
+        switch (cleanInput(line)) {
             case '/quit':
                 //kill telnet client
                 closeSocket(s);
@@ -113,14 +113,12 @@ function attachListeners(s) {
             case '/rooms':
                 //send client rooms settings
                 roomRoute(s);
-                buffer = '';
                 break;
             case '/join chat':
                 if (!joined) {
                     joined = true;
                     //send client chat settings
                     chatRoute(s);
-                    buffer = '';
                 } else {
                     s.write('\r\n' + localizeArr[11] + '\r\n');
                 }
@@ -178,24 +176,16 @@ function cleanInput(data) {
 /*
  * Timeout validate length & user finish input
  */
-function timeoutUserAuth(s) {
-    var minLength = s.chatGungHo.buffer.length;
-    setTimeout(function () {
-        if (minLength === s.chatGungHo.buffer.length) {
-            if (!authenticate(s)) {
-                s.write('\r\n' + localizeArr[2] + '\r\n');
-            } else {
-                s.chatGungHo.name = cleanInput(s.chatGungHo.buffer);
-                s.chatGungHo.buffer = '';
-                s.chatGungHo.authenticated = true;
-                s.write('\r\n' + localizeArr[4] + ' ' + s.chatGungHo.name + '!' + '\r\n');
-                attachListeners(s);
-            }
-        } else {
-            minLength = s.chatGungHo.buffer.length;
-            timeoutUserAuth(s);
-        }
-    }, 1200);
+function userAuth(s) {
+	if (!authenticate(s)) {
+        s.write('\r\n' + localizeArr[2] + '\r\n');
+    } else {
+		s.chatGungHo.name = cleanInput(s.chatGungHo.buffer);
+        s.chatGungHo.buffer = '';
+        s.chatGungHo.authenticated = true;
+        s.write('\r\n' + localizeArr[4] + ' ' + s.chatGungHo.name + '!' + '\r\n');
+        attachListeners(s);
+    }
 }
 
 /*
@@ -205,7 +195,7 @@ var server = net.createServer(serverOption,newClient);
 
 //Handle on connection
 server.on('connection', function (client) {
-    var timeoutStart = false;
+    var my_carrier = carrier.carry(client);
     //encoding setup
     client.setEncoding('utf8');
     //disable the Nagle algorithm
@@ -216,20 +206,23 @@ server.on('connection', function (client) {
     client.write(localizeArr[0] + '\r\n');
     //sign in text
     client.write(localizeArr[1] + '\r\n');
+	
+	my_carrier.on('line',  function(line) {
+		//Add to client buffer
+        client.chatGungHo.buffer += line;
+
+        //Add main menu
+        mainMenu(client,line);
+
+        //check user already sign in
+        if (!client.chatGungHo.authenticated) {
+            userAuth(client);
+        }
+	});
 
     //Handle incoming msg from clients
     client.on('data', function (d) {
-        //Add to client buffer
-        client.chatGungHo.buffer += d;
-
-        //Add main menu
-        mainMenu(client,d);
-
-        //check user already sign in
-        if (!client.chatGungHo.authenticated && client.chatGungHo.buffer.length > 2 && !timeoutStart) {
-            timeoutStart = true;
-            timeoutUserAuth(client);
-        }
+        
     });
 
     //Handle remove the client from the list when it leaves
