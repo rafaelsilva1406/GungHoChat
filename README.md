@@ -6,9 +6,10 @@ language: Javascript
 runtime: node.js
 #Bugs
 - hottub not incomplete
-- When a user broadcast to other clients only sends single chars buffer functionality not finished
-- Notification when new user joins chat incomplete
-- leave route incomplete
+- ~~When a user broadcast to other clients only sends single chars buffer functionality not finished~~
+- ~~Notification when new user joins chat incomplete~~
+- ~~leave route incomplete~~
+- Not sure hot implement protocol **<=** or **=>**
 
 # Working features
 -  escape char ^ 
